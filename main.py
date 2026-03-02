@@ -10,23 +10,26 @@ CHANNEL_ID = -1002178787818
 
 client = TelegramClient('security_bot', API_ID, API_HASH)
 
+# --- Start Command (အသစ်ထည့်သွင်းထားသောအပိုင်း) ---
+@client.on(events.NewMessage(pattern='/start'))
+async def start(event):
+    # Bot အလုပ်လုပ်မလုပ် စမ်းသပ်ရန်အတွက် ပြန်စာပို့ခိုင်းခြင်း
+    await event.respond('မင်္ဂလာပါ Zeyar! Bot က အဆင်ပြေပြေ အလုပ်လုပ်နေပါပြီခင်ဗျာ။')
+
+# --- Security Handler (မူရင်းအတိုင်း) ---
 @client.on(events.ChatAction)
 async def handler(event):
-    # လူသစ်ဝင်လာတာကို စစ်ဆေးခြင်း
     if event.user_joined or event.user_added:
         if event.chat_id == CHANNEL_ID:
             user = await event.get_user()
             
-            # User ရဲ့ အချက်အလက်ကို စစ်ဆေးခြင်း
             if user.bot:
                 await client.kick_participant(CHANNEL_ID, user.id)
                 print(f"Kicked a bot: {user.id}")
                 return
 
             try:
-                # User ရဲ့ Full Info ကို ဆွဲထုတ်ကြည့်ခြင်း
                 full_user = await client(types.functions.users.GetFullUserRequest(id=user.id))
-                
                 if not user.first_name:
                     await client.kick_participant(CHANNEL_ID, user.id)
                     print(f"Kicked invalid user: {user.id}")
@@ -34,14 +37,11 @@ async def handler(event):
                 print(f"Error checking user: {e}")
 
 async def main():
-    # Bot ကို စတင်နှိုးခြင်း
     await client.start(bot_token=BOT_TOKEN)
     print("Security Bot is running...")
-    # Bot ကို အမြဲတမ်း အလုပ်လုပ်နေစေခြင်း
     await client.run_until_disconnected()
 
 if __name__ == '__main__':
-    # Python 3.14 ရဲ့ Event Loop ပြဿနာကို ဖြေရှင်းရန် asyncio.run သုံးခြင်း
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
