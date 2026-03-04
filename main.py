@@ -29,37 +29,47 @@ async def start_web_server():
 @client.on(events.NewMessage(pattern='/start'))
 async def start(event):
     if event.sender_id == ADMIN_ID:
-        # အမြဲတမ်းပေါ်နေမယ့် Keyboard Button ထည့်ခြင်း
         buttons = [[Button.text("🔍 ID ဖြင့် လူရှာရန်", resize=True)]]
-        await event.respond('မင်္ဂလာပါ Zeyar! Bot က အဆင်သင့်ဖြစ်နေပါပြီ။\n\nလူဟောင်းတွေကို ရှာချင်ရင် အောက်ကခလုတ်ကို နှိပ်ပါ သို့မဟုတ် `/check [ID]` လို့ ရိုက်ပို့ပါခင်ဗျာ။', buttons=buttons)
+        await event.respond('မင်္ဂလာပါ Zeyar! Bot က အဆင်သင့်ဖြစ်နေပါပြီ။\n\nChannel ထဲက လူဟောင်းတွေကို ရှာချင်ရင် ID နံပါတ်ကို ဒီအတိုင်း ရိုက်ပို့ပေးပါခင်ဗျာ။', buttons=buttons)
 
 # --- Handle Menu Button Click ---
 @client.on(events.NewMessage(pattern='🔍 ID ဖြင့် လူရှာရန်'))
 async def ask_id(event):
     if event.sender_id == ADMIN_ID:
-        await event.respond("ရှာဖွေလိုသည့် User ရဲ့ **ID နံပါတ်** ကို ရိုက်ထည့်ပေးပါခင်ဗျာ။\n(ဥပမာ - `123456789`)")
+        await event.respond("ရှာဖွေလိုသည့် User ရဲ့ **ID နံပါတ်** ကို ရိုက်ထည့်ပေးပါခင်ဗျာ။\n(ဥပမာ - `1919806454`)")
 
-# --- Check User logic (Function) ---
+# --- Enhanced User Details Function (Search in Channel) ---
 async def get_user_details(user_id):
     try:
-        user = await client.get_entity(int(user_id))
-        full_name = f"{user.first_name} {user.last_name if user.last_name else ''}".strip()
+        uid = int(user_id)
+        # ၁။ Channel ထဲမှာ အဲဒီ ID ရှိမရှိ အရင်စစ်ဆေးပြီး အချက်အလက်ယူခြင်း
+        participant = await client.get_permissions(CHANNEL_ID, uid)
+        user = await client.get_entity(uid)
+        
+        f_name = user.first_name if user.first_name else "None"
+        l_name = user.last_name if user.last_name else "None"
+        
         return (
-            f"🔍 **User Found!**\n\n"
-            f"👤 Name: {full_name}\n"
-            f"🆔 ID: `{user.id}`\n"
-            f"🔗 Username: @{user.username if user.username else 'None'}\n"
-            f"🖼 Profile: [Click to View Profile](tg://user?id={user.id})"
+            f"🔍 **User Found in Channel!**\n\n"
+            f"👤 **First Name:** {f_name}\n"
+            f"👤 **Last Name:** {l_name}\n"
+            f"🆔 **ID:** `{user.id}`\n"
+            f"🔗 **Username:** @{user.username if user.username else 'None'}\n"
+            f"🖼 **Profile:** [Click to View Profile](tg://user?id={user.id})"
         )
+    except ValueError:
+        return "❌ ID နံပါတ် အမှားဖြစ်နေပါသည်။ ဂဏန်းများသာ ထည့်ပေးပါ။"
     except Exception as e:
-        return f"❌ ရှာမတွေ့ပါ သို့မဟုတ် Error တက်နေပါသည်- {e}"
+        # Channel ထဲမှာ မရှိရင် သို့မဟုတ် ရှာမတွေ့ရင် ပြမည့်စာ
+        return f"❌ ရှာမတွေ့ပါ။ အကြောင်းရင်း- {e}\n(ထိုသူသည် Channel ထဲမှာ မရှိခြင်း သို့မဟုတ် Bot က ရှာမရခြင်း ဖြစ်နိုင်ပါသည်)"
 
-# --- Check User by ID (Text Command & Direct ID input) ---
+# --- Check User by ID Handler ---
 @client.on(events.NewMessage)
 async def check_handler(event):
     if event.sender_id != ADMIN_ID or event.text.startswith('/start') or event.text == "🔍 ID ဖြင့် လူရှာရန်":
         return
 
+    # ID နံပါတ် သီးသန့်ဖြစ်စေ၊ /check ပါသည်ဖြစ်စေ ရှာပေးခြင်း
     text = event.text.replace('/check', '').strip()
     if text.isdigit():
         response = await get_user_details(text)
@@ -72,20 +82,21 @@ async def callback_handler(event):
     response = await get_user_details(user_id)
     await event.respond(response)
 
-# --- Security Handler & Notification with Inline Button ---
+# --- Security Handler & Notification ---
 @client.on(events.ChatAction)
 async def handler(event):
     if (event.user_joined or event.user_added) and event.chat_id == CHANNEL_ID:
         user = await event.get_user()
-        full_name = f"{user.first_name} {user.last_name if user.last_name else ''}".strip()
         
-        # Inline Button လေး ထည့်လိုက်ခြင်း
+        f_name = user.first_name if user.first_name else "None"
+        l_name = user.last_name if user.last_name else "None"
         check_button = [Button.inline("🔎 အသေးစိတ်စစ်ဆေးရန်", data=f"check_{user.id}")]
         
         user_info = (
-            f"👤 Name: {full_name}\n"
-            f"🆔 ID: `{user.id}`\n"
-            f"🔗 Username: @{user.username if user.username else 'None'}"
+            f"👤 **First Name:** {f_name}\n"
+            f"👤 **Last Name:** {l_name}\n"
+            f"🆔 **ID:** `{user.id}`\n"
+            f"🔗 **Username:** @{user.username if user.username else 'None'}"
         )
 
         if user.bot:
