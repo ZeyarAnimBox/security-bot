@@ -12,8 +12,9 @@ ADMIN_ID = 5522052096
 
 client = TelegramClient('security_bot', API_ID, API_HASH)
 
-# --- Render Port Binding Fix ---
+# --- Render Port Binding Fix (Keep-Alive for Cron-job) ---
 async def handle(request):
+    # Output too large error ကို ဖြေရှင်းရန် "OK" စာသားတိုလေးသာ ပြန်ပို့မည်
     return web.Response(text="OK")
 
 async def start_web_server():
@@ -25,57 +26,59 @@ async def start_web_server():
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
 
-# --- Start Command with Menu Button ---
+# --- Start Command ---
 @client.on(events.NewMessage(pattern='/start'))
 async def start(event):
     if event.sender_id == ADMIN_ID:
         buttons = [[Button.text("🔍 ID ဖြင့် လူရှာရန်", resize=True)]]
-        await event.respond('မင်္ဂလာပါ Zeyar! Bot က အဆင်သင့်ဖြစ်နေပါပြီ။\n\nChannel ထဲက လူဟောင်းတွေကို ရှာချင်ရင် ID နံပါတ်ကို ဒီအတိုင်း ရိုက်ပို့ပေးပါခင်ဗျာ။', buttons=buttons)
+        await event.respond('မင်္ဂလာပါ Zeyar! Bot က အဆင်သင့်ဖြစ်နေပါပြီ။\n\nလူဟောင်းတွေကို ရှာချင်ရင် ID နံပါတ်ကို ဒီအတိုင်း ရိုက်ပို့ပေးပါခင်ဗျာ။', buttons=buttons)
 
-# --- Handle Menu Button Click ---
+# --- Menu Button Click ---
 @client.on(events.NewMessage(pattern='🔍 ID ဖြင့် လူရှာရန်'))
 async def ask_id(event):
     if event.sender_id == ADMIN_ID:
-        await event.respond("ရှာဖွေလိုသည့် User ရဲ့ **ID နံပါတ်** ကို ရိုက်ထည့်ပေးပါခင်ဗျာ။\n(ဥပမာ - `1919806454`)")
+        await event.respond("ရှာဖွေလိုသည့် User ရဲ့ **ID နံပါတ်** ကို ရိုက်ထည့်ပေးပါခင်ဗျာ။")
 
-# --- Enhanced User Details Function (Search in Channel) ---
+# --- Enhanced User Details Function ---
 async def get_user_details(user_id):
     try:
         uid = int(user_id)
-        # ၁။ Channel ထဲမှာ အဲဒီ ID ရှိမရှိ အရင်စစ်ဆေးပြီး အချက်အလက်ယူခြင်း
-        participant = await client.get_permissions(CHANNEL_ID, uid)
+        # Channel ထဲတွင် ရှိမရှိ အရင်စစ်ဆေးမည်
+        await client.get_permissions(CHANNEL_ID, uid)
         user = await client.get_entity(uid)
         
         f_name = user.first_name if user.first_name else "None"
         l_name = user.last_name if user.last_name else "None"
         
         return (
-            f"🔍 **User Found in Channel!**\n\n"
+            f"🔍 **User Found!**\n\n"
             f"👤 **First Name:** {f_name}\n"
             f"👤 **Last Name:** {l_name}\n"
             f"🆔 **ID:** `{user.id}`\n"
             f"🔗 **Username:** @{user.username if user.username else 'None'}\n"
             f"🖼 **Profile:** [Click to View Profile](tg://user?id={user.id})"
         )
-    except ValueError:
-        return "❌ ID နံပါတ် အမှားဖြစ်နေပါသည်။ ဂဏန်းများသာ ထည့်ပေးပါ။"
     except Exception as e:
-        # Channel ထဲမှာ မရှိရင် သို့မဟုတ် ရှာမတွေ့ရင် ပြမည့်စာ
-        return f"❌ ရှာမတွေ့ပါ။ အကြောင်းရင်း- {e}\n(ထိုသူသည် Channel ထဲမှာ မရှိခြင်း သို့မဟုတ် Bot က ရှာမရခြင်း ဖြစ်နိုင်ပါသည်)"
+        return f"❌ ရှာမတွေ့ပါ။ အကြောင်းရင်း- {e}\n(ထိုသူသည် Channel ထဲမှာ မရှိခြင်း သို့မဟုတ် ID မှားယွင်းနေခြင်း ဖြစ်နိုင်ပါသည်)"
 
-# --- Check User by ID Handler ---
+# --- Improved Check Handler (Fix for image_033726.png error) ---
 @client.on(events.NewMessage)
 async def check_handler(event):
     if event.sender_id != ADMIN_ID or event.text.startswith('/start') or event.text == "🔍 ID ဖြင့် လူရှာရန်":
         return
 
-    # ID နံပါတ် သီးသန့်ဖြစ်စေ၊ /check ပါသည်ဖြစ်စေ ရှာပေးခြင်း
-    text = event.text.replace('/check', '').strip()
-    if text.isdigit():
-        response = await get_user_details(text)
+    # /check ပါသည်ဖြစ်စေ၊ မပါသည်ဖြစ်စေ ဂဏန်းသက်သက်ကိုသာ ဆွဲထုတ်မည်
+    input_text = event.text.replace('/check', '').strip()
+    
+    if input_text.isdigit():
+        response = await get_user_details(input_text)
         await event.respond(response)
+    else:
+        # ဂဏန်းမဟုတ်သော စာသားများပါလာလျှင် လျစ်လျူရှုမည် သို့မဟုတ် အသိပေးမည်
+        if not event.text.startswith('/'):
+             await event.respond("❌ ကျေးဇူးပြု၍ ID ဂဏန်းသက်သက်ကိုသာ ရိုက်ထည့်ပေးပါခင်ဗျာ။")
 
-# --- Inline Button Callback Handler ---
+# --- Callback Handler for Inline Button ---
 @client.on(events.CallbackQuery(pattern=b'check_(.*)'))
 async def callback_handler(event):
     user_id = event.data_match.group(1).decode('utf-8')
