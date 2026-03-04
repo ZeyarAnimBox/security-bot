@@ -12,9 +12,8 @@ ADMIN_ID = 5522052096
 
 client = TelegramClient('security_bot', API_ID, API_HASH)
 
-# --- Render Port Binding Fix (Keep-Alive for Cron-job) ---
+# --- Render Port Binding Fix ---
 async def handle(request):
-    # Output too large error ကို ဖြေရှင်းရန် "OK" စာသားတိုလေးသာ ပြန်ပို့မည်
     return web.Response(text="OK")
 
 async def start_web_server():
@@ -39,13 +38,19 @@ async def ask_id(event):
     if event.sender_id == ADMIN_ID:
         await event.respond("ရှာဖွေလိုသည့် User ရဲ့ **ID နံပါတ်** ကို ရိုက်ထည့်ပေးပါခင်ဗျာ။")
 
-# --- Enhanced User Details Function ---
+# --- Optimized User Search Function (Supports Old Members) ---
 async def get_user_details(user_id):
     try:
         uid = int(user_id)
-        # Channel ထဲတွင် ရှိမရှိ အရင်စစ်ဆေးမည်
-        await client.get_permissions(CHANNEL_ID, uid)
-        user = await client.get_entity(uid)
+        
+        # ၁။ Channel Member List ထဲမှာ အဲဒီ ID တစ်ခုတည်းကို ကွက်ပြီးရှာခြင်း (လူဟောင်းများအတွက်)
+        participants = await client.get_participants(CHANNEL_ID, ids=[uid])
+        
+        if participants:
+            user = participants[0]
+        else:
+            # ၂။ List ထဲရှာမတွေ့လျှင် Global Entity အနေဖြင့် ထပ်ရှာခြင်း
+            user = await client.get_entity(uid)
         
         f_name = user.first_name if user.first_name else "None"
         l_name = user.last_name if user.last_name else "None"
@@ -67,14 +72,14 @@ async def check_handler(event):
     if event.sender_id != ADMIN_ID or event.text.startswith('/start') or event.text == "🔍 ID ဖြင့် လူရှာရန်":
         return
 
-    # /check ပါသည်ဖြစ်စေ၊ မပါသည်ဖြစ်စေ ဂဏန်းသက်သက်ကိုသာ ဆွဲထုတ်မည်
+    # ရှေ့နောက် Space များဖယ်ထုတ်ပြီး ဂဏန်းဟုတ်မဟုတ် စစ်ဆေးခြင်း
     input_text = event.text.replace('/check', '').strip()
     
     if input_text.isdigit():
         response = await get_user_details(input_text)
         await event.respond(response)
     else:
-        # ဂဏန်းမဟုတ်သော စာသားများပါလာလျှင် လျစ်လျူရှုမည် သို့မဟုတ် အသိပေးမည်
+        # Command မဟုတ်ဘဲ စာရိုက်မိပါက အသိပေးရန်
         if not event.text.startswith('/'):
              await event.respond("❌ ကျေးဇူးပြု၍ ID ဂဏန်းသက်သက်ကိုသာ ရိုက်ထည့်ပေးပါခင်ဗျာ။")
 
