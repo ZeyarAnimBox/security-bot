@@ -43,23 +43,27 @@ async def ask_id(event):
 async def get_user_details(user_id):
     try:
         uid = int(user_id)
-        # Channel ထဲတွင် ရှိမရှိ အရင်စစ်ဆေးမည်
-        await client.get_permissions(CHANNEL_ID, uid)
-        user = await client.get_entity(uid)
-        
-        f_name = user.first_name if user.first_name else "None"
-        l_name = user.last_name if user.last_name else "None"
-        
-        return (
-            f"🔍 **User Found!**\n\n"
-            f"👤 **First Name:** {f_name}\n"
-            f"👤 **Last Name:** {l_name}\n"
-            f"🆔 **ID:** `{user.id}`\n"
-            f"🔗 **Username:** @{user.username if user.username else 'None'}\n"
-            f"🖼 **Profile:** [Click to View Profile](tg://user?id={user.id})"
-        )
+
+        # Channel member list ကို scan လုပ်ပြီး ID ကိုရှာမည်
+        async for user in client.iter_participants(CHANNEL_ID):
+            if user.id == uid:
+
+                f_name = user.first_name if user.first_name else "None"
+                l_name = user.last_name if user.last_name else "None"
+
+                return (
+                    f"🔍 **User Found!**\n\n"
+                    f"👤 **First Name:** {f_name}\n"
+                    f"👤 **Last Name:** {l_name}\n"
+                    f"🆔 **ID:** `{user.id}`\n"
+                    f"🔗 **Username:** @{user.username if user.username else 'None'}\n"
+                    f"🖼 **Profile:** [Click to View Profile](tg://user?id={user.id})"
+                )
+
+        return "❌ User ကို Channel ထဲမှာ မတွေ့ပါ။"
+
     except Exception as e:
-        return f"❌ ရှာမတွေ့ပါ။ အကြောင်းရင်း- {e}\n(ထိုသူသည် Channel ထဲမှာ မရှိခြင်း သို့မဟုတ် ID မှားယွင်းနေခြင်း ဖြစ်နိုင်ပါသည်)"
+        return f"❌ ရှာမတွေ့ပါ။ အကြောင်းရင်း- {e}"
 
 # --- Improved Check Handler (Fix for image_033726.png error) ---
 @client.on(events.NewMessage)
@@ -123,3 +127,4 @@ if __name__ == '__main__':
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
+
